@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 .gleam/
 bun.lock
+.next/
+out/
+.DS_Store

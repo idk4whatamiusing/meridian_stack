@@ -1,4 +1,4 @@
-# Omnistack template
+# Meridian Stack template
 
 Scaffold a polyglot full-stack monorepo: **Next.js (SSR)** frontend, **Rust (axum)**
 API with REST + GraphQL + SSE + WebSocket + pluggable cache, **Gleam** realtime
@@ -9,7 +9,7 @@ included.
 
 ## Quickstart
 
-    bun create omnistack        # or: npx create-omnistack <name> <cloudflare|aws>
+    bun create meridian-stack    # or: npx create-meridian-stack <name> <cloudflare|aws>
     cd <name>
     docker compose up -d        # postgres + redis (dev infra only)
     bun run dev:web             # Next.js  :3000   (terminal 1)

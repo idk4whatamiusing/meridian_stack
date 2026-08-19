@@ -1,14 +1,33 @@
 {
-  "name": "create-omnistack",
-  "version": "0.1.0",
-  "description": "Scaffold an Omnistack monorepo: Next.js + Rust (axum) + Gleam + Python, Cloudflare or AWS flavor",
+  "name": "create-meridian-stack",
+  "version": "0.2.0",
+  "description": "Scaffold a Meridian Stack monorepo: Next.js + Rust (axum) + Gleam + Python, Cloudflare or AWS flavor",
   "type": "module",
   "bin": {
-    "create-omnistack": "src/cli.ts"
+    "create-meridian-stack": "src/cli.ts"
   },
   "files": [
     "src",
     "templates"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/idk4whatamiusing/meridian_stack.git"
+  },
+  "author": "idk4whatamiusing",
+  "keywords": [
+    "nextjs",
+    "rust",
+    "axum",
+    "gleam",
+    "fullstack",
+    "monorepo",
+    "cloudflare",
+    "aws",
+    "terraform"
+  ],
+  "engines": {
+    "node": ">=23"
+  }
 }

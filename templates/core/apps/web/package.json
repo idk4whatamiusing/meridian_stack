@@ -7,7 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@omnistack/shared": "*",
+    "@meridian-stack/shared": "*",
     "next": "^16",
     "react": "^19",
     "react-dom": "^19"
