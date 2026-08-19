@@ -1,0 +1,14 @@
+{
+  "name": "{{name}}",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "bun --cwd apps/web dev",
+    "dev:api": "cargo run --manifest-path apps/api/Cargo.toml",
+    "dev:realtime": "cd apps/realtime && gleam run",
+    "build:web": "bun --cwd apps/web build"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "create-omnistack",
+  "version": "0.1.0",
+  "description": "Scaffold an Omnistack monorepo: Next.js + Rust (axum) + Gleam + Python, Cloudflare or AWS flavor",
+  "type": "module",
+  "bin": {
+    "create-omnistack": "src/cli.ts"
+  },
+  "files": [
+    "src",
+    "templates"
+  ],
+  "license": "MIT"
+}

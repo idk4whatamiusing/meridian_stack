@@ -1,0 +1,6 @@
+API_ORIGIN=http://localhost:8000
+BACKEND_SECRET=change-me
+SESSION_TTL=604800# Google OAuth - create creds at https://console.cloud.google.com/apis/credentials
+# redirect URI = <your worker url>/api/auth/google/callback
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=

@@ -1,0 +1,9 @@
+name = "gateway"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+
+# paste the id from `npx wrangler kv namespace create SESSIONS`
+kv_namespaces = [{ binding = "SESSIONS", id = "REPLACE_WITH_KV_ID", preview_id = "REPLACE_WITH_PREVIEW_ID" }]
+
+# static assets = the Next.js static export; API/SSE paths hit the worker first
+assets = { directory = "../../apps/web/out", run_worker_first = ["/api/*"] }

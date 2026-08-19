@@ -1,0 +1,27 @@
+name: CD - AWS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "compose.prod.yaml"
+      - "Caddyfile"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/app || exit 1
+            git pull --ff-only || exit 1
+            docker compose -f compose.prod.yaml up -d --build
+            docker image prune -f

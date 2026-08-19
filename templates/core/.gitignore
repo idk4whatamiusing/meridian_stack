@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+target/
+.venv/
+__pycache__/
+*.pyc
+.env
+.dev.vars
+.gleam/
+build/
+erl_crash.dump
