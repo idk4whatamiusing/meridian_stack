@@ -24,11 +24,12 @@ const [nameArg, variantArg] = process.argv.slice(2);
 
 const rl = readline.createInterface({ input, output });
 const name = nameArg?.trim() || (await rl.question("Project name: ")).trim() || "my-app";
-let variant = variantArg?.trim().toLowerCase() || (await rl.question("Variant [cloudflare/aws]: ")).trim().toLowerCase();
+let variant = variantArg?.trim().toLowerCase() || (await rl.question("Variant [cloudflare/aws/both] (default: both): ")).trim().toLowerCase();
 rl.close();
+if (!variant) variant = "both";
 
-if (!["cloudflare", "aws"].includes(variant)) {
-  console.error("variant must be one of: cloudflare, aws");
+if (!["cloudflare", "aws", "both"].includes(variant)) {
+  console.error("variant must be one of: cloudflare, aws, both");
   process.exit(1);
 }
 
@@ -40,7 +41,14 @@ if (existsSync(dest)) {
 
 console.log(`scaffolding ${name} (${variant}) into ${dest}...`);
 copyTree(join(templates, "core"), dest);
-copyTree(join(templates, "overlays", variant), dest);
+if (variant === "both") {
+  // layering: cloudflare + aws, then the both overlay resolves the few conflicts
+  copyTree(join(templates, "overlays", "cloudflare"), dest);
+  copyTree(join(templates, "overlays", "aws"), dest);
+  copyTree(join(templates, "overlays", "both"), dest);
+} else {
+  copyTree(join(templates, "overlays", variant), dest);
+}
 
 const skipDirs = new Set(["node_modules", "target", ".git", ".next", "out", ".venv", "__pycache__"]);
 function walk(dir: string, fn: (f: string) => void) {
@@ -77,4 +85,4 @@ done! next steps:
   bun run dev:realtime            # Gleam on :8001 (terminal 3)
   cd apps/ai && uv run --with-requirements requirements.txt uvicorn main:app --port 8002
   open http://localhost:3000/dashboard
-deploy: see DEPLOY.md (${variant} flavor) in the project root`);
+deploy: see DEPLOY.md (${variant === "both" ? "cloudflare + aws" : variant} flavor) in the project root`);

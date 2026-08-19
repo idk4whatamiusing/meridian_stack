@@ -9,7 +9,7 @@ included.
 
 ## Quickstart
 
-    bun create meridian-stack    # or: npx create-meridian-stack <name> <cloudflare|aws>
+    npm create meridian-stack@latest    # defaults to both flavors; add "cloudflare" or "aws" to pick one
     cd <name>
     docker compose up -d        # postgres + redis (dev infra only)
     bun run dev:web             # Next.js  :3000   (terminal 1)
