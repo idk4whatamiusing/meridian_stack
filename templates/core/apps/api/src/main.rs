@@ -68,6 +68,37 @@ async fn auth_user(cache: &cache::Cache, headers: Option<&HeaderMap>) -> Option<
     Some((id, email))
 }
 
+async fn upsert_user(pool: &sqlx::PgPool, id: &str, email: &str) {
+    sqlx::query("INSERT INTO users (id, email) VALUES ($1::uuid, $2) ON CONFLICT (email) DO NOTHING")
+        .bind(id)
+        .bind(email)
+        .execute(pool)
+        .await
+        .map_err(|e| tracing::warn!("upsert failed: {e}"))
+        .ok();
+}
+
+// Cloudflare gateway path: it validates the Google token and calls this with
+// the verified user, so the DB is only touched through the private backend.
+async fn from_oauth(
+    State(st): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if !bearer_ok(&st.secret, &headers) {
+        return Err((StatusCode::UNAUTHORIZED, Json(json!({ "error": "bad secret" }))));
+    }
+    let id = headers
+        .get("x-user-id")
+        .and_then(|v| v.to_str().ok())
+        .ok_or((StatusCode::BAD_REQUEST, Json(json!({ "error": "missing x-user-id" }))))?;
+    let email = headers
+        .get("x-user-email")
+        .and_then(|v| v.to_str().ok())
+        .ok_or((StatusCode::BAD_REQUEST, Json(json!({ "error": "missing x-user-email" }))))?;
+    upsert_user(&st.pool, id, email).await;
+    Ok(Json(json!({ "ok": true })))
+}
+
 async fn dev_login(State(st): State<AppState>, Json(body): Json<Value>) -> impl IntoResponse {
     let email = body
         .get("email")
@@ -76,6 +107,7 @@ async fn dev_login(State(st): State<AppState>, Json(body): Json<Value>) -> impl 
     let id = Uuid::new_v4().to_string();
     let session_key = format!("session:{id}");
     st.cache.set(&session_key, email, 604800).await.ok();
+    upsert_user(&st.pool, &id, email).await;
     (
         StatusCode::OK,
         [(header::SET_COOKIE, session_cookie_string(&id))],
@@ -199,6 +231,7 @@ async fn main() {
         .route("/api/health", get(health))
         .route("/api/me", get(me))
         .route("/api/auth/dev-login", post(dev_login))
+        .route("/api/users/from-oauth", post(from_oauth))
         .route("/api/auth/logout", post(logout))
         .route("/api/auth/google", get(oauth::google_login))
         .route("/api/auth/google/callback", get(oauth::google_callback))

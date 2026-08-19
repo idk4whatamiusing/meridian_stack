@@ -13,15 +13,25 @@ get_env(Key) ->
 %% --------------------------------------------------------------------------
 
 redis_parse_url(Url) ->
-    %% redis://host:port (no userinfo - add AUTH here if your Redis needs a password)
-    %% Url may be a binary (gleam BitArray) or charlist (os:getenv) - normalise to list.
+    %% redis://[user:password@]host:port - Url may be a binary or charlist.
     UrlList = case is_binary(Url) of true -> binary_to_list(Url); false -> Url end,
     Rest = string:trim(string:trim(UrlList, leading, "redis://"), leading, "redis:"),
-    {HostPort} = case string:split(Rest, "@", leading) of [_, HP] -> {HP}; _ -> {Rest} end,
-    case string:split(HostPort, ":") of
-        [H, P] -> {H, list_to_integer(P), ""};
-        [H] -> {H, 6379, ""}
-    end.
+    {UserInfo, HostPort} =
+        case string:split(Rest, "@") of
+            [HP] -> {"", HP};
+            [UI, HP] -> {UI, HP}
+        end,
+    {Host, PortS} =
+        case string:split(HostPort, ":") of
+            [H, P] -> {H, P};
+            [H] -> {H, "6379"}
+        end,
+    Password =
+        case string:split(UserInfo, ":") of
+            [_User, Pass] -> Pass;
+            [_] -> ""
+        end,
+    {Host, list_to_integer(PortS), Password}.
 
 redis_command(Sock, Args) ->
     Bin = [iolist_to_binary([[$*, integer_to_list(length(Args)), $\r, $\n] |
@@ -32,8 +42,21 @@ redis_command(Sock, Args) ->
     gen_tcp:send(Sock, Bin).
 
 redis_connect(Url) ->
-    {Host, Port, _Password} = redis_parse_url(Url),
-    gen_tcp:connect(Host, Port, [binary, {active, false}, {packet, raw}], 2000).
+    {Host, Port, Password} = redis_parse_url(Url),
+    case gen_tcp:connect(Host, Port, [binary, {active, false}, {packet, raw}], 2000) of
+        {ok, Sock} ->
+            case Password of
+                "" -> {ok, Sock};
+                _ ->
+                    _ = redis_command(Sock, [<<"AUTH">>, unicode:characters_to_binary(Password)]),
+                    case gen_tcp:recv(Sock, 0, 2000) of
+                        {ok, <<"+OK", _/binary>>} -> {ok, Sock};
+                        {ok, _} -> gen_tcp:close(Sock), {error, auth_failed};
+                        {error, _} = E -> gen_tcp:close(Sock), E
+                    end
+            end;
+        {error, _} = E -> E
+    end.
 
 redis_configured(_) ->
     case os:getenv("REDIS_URL") of
@@ -55,21 +78,29 @@ redis_publish(_Channel, _Message) ->
             end
     end.
 
-%% One-shot subscriber: forwards every published payload to Dest until the
-%% connection dies, then gives up (broker keeps running with in-memory fanout).
+%% Subscriber: forwards every published payload to Dest; reconnects forever so
+%% a redis blip never permanently severs the pub/sub bridge. Backoff on errors
+%% so a dead redis does not spin the CPU.
 redis_subscribe(Channel, Dest) ->
     case os:getenv("REDIS_URL") of
         false -> ok;
         Url ->
-            spawn(fun() -> redis_subscribe_loop(Url, Channel, Dest) end)
+            spawn(fun() -> redis_subscribe_loop(Url, Channel, Dest, 1000) end)
     end.
 
-redis_subscribe_loop(Url, Channel, Dest) ->
+redis_subscribe_loop(Url, Channel, Dest, Backoff) ->
     case redis_connect(Url) of
         {ok, Sock} ->
             _ = redis_command(Sock, [<<"SUBSCRIBE">>, iolist_to_binary(Channel)]),
-            redis_read_messages(Sock, Dest);
-        _ -> ok
+            case redis_read_messages(Sock, Dest) of
+                ok -> timer:sleep(Backoff),
+                     redis_subscribe_loop(Url, Channel, Dest, 1000);
+                {error, _} -> timer:sleep(Backoff),
+                     redis_subscribe_loop(Url, Channel, Dest, 1000)
+            end;
+        {error, _} ->
+            timer:sleep(Backoff),
+            redis_subscribe_loop(Url, Channel, Dest, min(Backoff * 2, 30000))
     end.
 
 %% RESP: *3\r\n$7\r\nmessage\r\n$N\r\nchannel\r\n$M\r\npayload\r\n
@@ -77,7 +108,7 @@ redis_read_messages(Sock, Dest) ->
     case gen_tcp:recv(Sock, 0) of
         {ok, Data} -> redis_parse_payload(Data, Dest),
                       redis_read_messages(Sock, Dest);
-        {error, _} -> gen_tcp:close(Sock)
+        {error, _} = E -> gen_tcp:close(Sock), E
     end.
 
 redis_parse_payload(<<>>, _Dest) -> ok;

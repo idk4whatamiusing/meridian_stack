@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@meridian-stack/shared";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "";
+const api = createClient(process.env.NEXT_PUBLIC_API_URL ?? "");
 
 interface Me {
   id: string;
@@ -12,30 +13,33 @@ interface Me {
 export default function Dashboard() {
   const [me, setMe] = useState<Me | null>(null);
   const [events, setEvents] = useState<string[]>([]);
+  const [users, setUsers] = useState<{ id: string; email: string }[]>([]);
   const [email, setEmail] = useState("");
 
   useEffect(() => {
-    fetch(`${API}/api/me`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setMe(d?.user ?? null))
+    api
+      .me()
+      .then((d) => setMe(d.user))
       .catch(() => setMe(null));
-    const es = new EventSource(`${API}/api/events`, { withCredentials: true });
+    const es = api.events();
     es.onmessage = (e) => setEvents((prev) => [e.data, ...prev].slice(0, 50));
     return () => es.close();
-  }, [API]);
+  }, []);
+
+  useEffect(() => {
+    api
+      .graphql<{ users: { id: string; email: string }[] }>("{ users(limit: 5) { id email } }")
+      .then((d) => setUsers(d.data?.users ?? []))
+      .catch(() => setUsers([]));
+  }, []);
 
   const login = async () => {
-    await fetch(`${API}/api/auth/dev-login`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email || "dev@example.com" }),
-    });
+    await api.login(email || "dev@example.com");
     location.reload();
   };
 
   const logout = async () => {
-    await fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include" });
+    await api.logout();
     location.reload();
   };
 
@@ -69,7 +73,7 @@ export default function Dashboard() {
               </button>
             </div>
             <a
-              href={`${API}/api/auth/google`}
+              href={`${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/auth/google`}
               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1 text-center text-sm hover:bg-zinc-800"
             >
               continue with google
@@ -81,7 +85,7 @@ export default function Dashboard() {
       <section className="rounded-xl border border-zinc-800 p-4">
         <h2 className="mb-3 text-sm font-medium text-zinc-400">Live events (SSE)</h2>
         {events.length === 0 ? (
-          <p className="text-sm text-zinc-500">waiting - try <code>curl -X POST {API}/api/broadcast -H &quot;x-backend-secret: change-me&quot; -H &quot;Content-Type: application/json&quot; -d &#123;&quot;message&quot;:&quot;hi&quot;&#125;</code></p>
+          <p className="text-sm text-zinc-500">waiting - try <code>curl -X POST {process.env.NEXT_PUBLIC_API_URL ?? ""}/api/broadcast -H &quot;x-backend-secret: change-me&quot; -H &quot;Content-Type: application/json&quot; -d &#123;&quot;message&quot;:&quot;hi&quot;&#125;</code></p>
         ) : (
           <ul className="space-y-1 font-mono text-xs">
             {events.map((e, i) => (
@@ -89,6 +93,23 @@ export default function Dashboard() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="rounded-xl border border-zinc-800 p-4">
+        <h2 className="mb-3 text-sm font-medium text-zinc-400">
+          GraphQL demo{" "}
+          <a href={`${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/graphql`} className="text-emerald-500 hover:underline">(open GraphiQL)</a>
+        </h2>
+        <pre className="text-xs text-zinc-400">{`query { users(limit: 5) { id email } }`}</pre>
+        <ul className="mt-2 space-y-1 font-mono text-xs">
+          {users.length === 0 ? (
+            <li className="text-zinc-500">no users yet - login to create one</li>
+          ) : (
+            users.map((u) => (
+              <li key={u.id} className="text-zinc-300">{u.email}</li>
+            ))
+          )}
+        </ul>
       </section>
     </main>
   );

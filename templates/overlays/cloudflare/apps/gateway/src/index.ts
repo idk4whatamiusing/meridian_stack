@@ -139,6 +139,7 @@ async function proxy(c: any) {
   const url = new URL(c.req.url);
   const headers = new Headers(c.req.raw.headers);
   headers.set("x-user-id", id);
+  headers.set("x-user-email", email);
   headers.set("x-backend-secret", c.env.BACKEND_SECRET);
 
   const resp = await fetch(c.env.API_ORIGIN + url.pathname + url.search, {

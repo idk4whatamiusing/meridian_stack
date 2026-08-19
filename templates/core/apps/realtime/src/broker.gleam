@@ -5,9 +5,12 @@ import gleam/otp/actor
 /// In-memory pub/sub used by SSE and WebSocket clients, fanned out to Redis
 /// pub/sub when REDIS_URL is set (horizontal scaling: other API/WS nodes
 /// subscribe on the same channel and get every message).
+///
+/// Local clients always get messages in-memory (works even while Redis is
+/// down); the Redis loopback of our own publishes is deduped via `recent`.
 
 pub type Broker = actor.Started(process.Subject(BrokerMsg))
-pub type State = List(process.Subject(String))
+pub type State = #(List(process.Subject(String)), List(String))
 
 pub type BrokerMsg {
   Register(process.Subject(String))
@@ -21,35 +24,44 @@ fn redis_subscribe(channel: BitArray, subject: process.Subject(BrokerMsg)) -> Ni
 @external(erlang, "realtime_ffi", "redis_publish")
 fn redis_publish(channel: BitArray, message: String) -> Nil
 
-@external(erlang, "realtime_ffi", "redis_configured")
-fn redis_configured(_: Int) -> Int
+fn fanout(state: State, message: String) -> State {
+  let #(subjects, recent) = state
+  list.each(subjects, fn(subject) { process.send(subject, message) })
+  #(subjects, recent)
+}
+
+fn remember(state: State, message: String) -> State {
+  let #(subjects, recent) = state
+  #(subjects, list.take([message, ..recent], 64))
+}
 
 pub fn new() -> Broker {
   let assert Ok(broker) =
     actor.new_with_initialiser(1000, fn(subject) {
       redis_subscribe(<<"events">>, subject)
       Ok(
-        actor.initialised([])
+        actor.initialised(#([], []))
         |> actor.returning(subject),
       )
     })
     |> actor.on_message(fn(state, msg) {
       case msg {
-        Register(subject) -> actor.continue([subject, ..state])
+        Register(subject) -> {
+          let #(subjects, recent) = state
+          actor.continue(#([subject, ..subjects], recent))
+        }
         Broadcast(message) -> {
-          // with redis on, our own publish loops back via the subscriber and
-          // fans out once (identical to any remote node) - avoids dupes
-          case redis_configured(0) {
-            1 -> redis_publish(<<"events">>, message)
-            _ -> list.each(state, fn(subject) { process.send(subject, message) })
+          redis_publish(<<"events">>, message)
+          state |> fanout(message) |> remember(message) |> actor.continue
+        }
+        // own publish echoing back from redis - already fanned out locally.
+        // (collision risk if a remote node broadcasts the exact same string
+        // within the last 64 messages - fine for this template's traffic)
+        RedisMessage(message) ->
+          case list.contains(state.1, message) {
+            True -> actor.continue(state)
+            False -> state |> fanout(message) |> actor.continue
           }
-          actor.continue(state)
-        }
-        // redis.subscribe -> pub/sub fanout from other nodes; never republished
-        RedisMessage(message) -> {
-          list.each(state, fn(subject) { process.send(subject, message) })
-          actor.continue(state)
-        }
       }
     })
     |> actor.start

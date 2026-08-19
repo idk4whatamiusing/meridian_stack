@@ -9,7 +9,8 @@ included.
 
 ## Quickstart
 
-    npm create meridian-stack@latest    # defaults to both flavors; add "cloudflare" or "aws" to pick one
+    npm create meridian-stack@latest -- --name <dir> --variant cloudflare  # or aws/both; -y skips prompts
+    npm create meridian-stack@latest cloudflare my-app
     cd <name>
     docker compose up -d        # postgres + redis (dev infra only)
     bun run dev:web             # Next.js  :3000   (terminal 1)
@@ -27,9 +28,9 @@ and you'll see live SSE events.
 | `apps/web` | Next.js 16 + Tailwind 4 | SSR frontend; `output: export` on the Cloudflare flavor |
 | `apps/api` | Rust axum 0.8, SQLx, Redis, reqwest | REST + GraphQL (`/api/graphql` + GraphiQL) + `/events` SSE + `/ws` + `/api/broadcast`; `Cache` trait: **kv** (CF KV) or **redis**; looks up sessions from Redis |
 | `apps/realtime` | Gleam + mist | SSE + WS fanout via an in-process broker, fanned out to Redis pub/sub when `REDIS_URL` is set (horizontal scale) |
-| `apps/ai` | Python FastAPI | `/predict` + `/train` stubs - fill in your models |
-| `packages/shared` | TypeScript | types shared across the workspaces |
-| `gateway` (CF flavor only) | Hono Worker | dev-login / sessions in KV, proxies `/api/*` + `/events` to the backend with `x-user-id` + `x-backend-secret`, serves the web export |
+| `apps/ai` | Python FastAPI | `/chat` via any OpenAI-compatible API (`OPENAI_API_KEY`/`OPENAI_BASE_URL`), baseline `/predict` classifier, `/train` hook |
+| `packages/shared` | TypeScript | typed `createClient` SDK for the API (me/login/logout/broadcast/graphql/events) used by the dashboard |
+| `gateway` (CF flavor only) | Hono Worker | dev-login / sessions in KV, proxies `/api/*` + `/events` to the backend with `x-user-id` + `x-user-email` + `x-backend-secret`, serves the web export |
 | `compose.prod.yaml` (AWS flavor) | Caddy + Docker | one-command prod stack with auto-TLS on `*.YOUR-IP.sslip.io` |
 
 ## Endpoints
@@ -38,6 +39,7 @@ and you'll see live SSE events.
 - POST `:8000/api/auth/dev-login`        dev session -> Set-Cookie
 - GET  `:8000/api/auth/google`           Google OAuth login (+ `/callback` verifies the id_token against Google JWKS)
 - GET  `:8000/api/me`                    session user (gateway header on CF, Redis cookie on AWS)
+- POST `:8000/api/users/from-oauth`      upserts a Google-verified user into `users` (called by the CF gateway; `x-backend-secret` gated)
 - POST `:8000/api/graphql`               GraphQL (GraphiQL at GET) - `me`, `users`, `health`
 - GET  `:8000/api/events`                SSE stream (also proxied by the CF gateway)
 - POST `:8000/api/broadcast`             `x-backend-secret: <BACKEND_SECRET>` + JSON `{"message":"hi"}` -> SSE fans out
@@ -50,11 +52,13 @@ on Cloudflare the gateway intercepts `/api/*` and forwards them (with the sessio
 ## Auth model
 
 Session = random id -> JSON/session in KV (Cloudflare gateway) or Redis (API on AWS).
-The gateway validates the cookie, then forwards `x-user-id` + `x-backend-secret` to
-the backend (backend never sees cookies). On AWS the API validates the cookie
-against Redis directly. Two login paths: **Google OAuth** (id_token verified
-against the Google JWKS - `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI`)
-and **dev login** (any email, for local dev only).
+The gateway validates the cookie, then forwards `x-user-id` + `x-user-email` +
+`x-backend-secret` to the backend (backend never sees cookies). On AWS the API
+validates the cookie against Redis directly. Two login paths: **Google OAuth**
+(id_token verified against the Google JWKS -
+`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI`) and **dev login**
+(any email, for local dev only). OAuth and dev logins upsert the user into the
+`users` table (uniqued by email).
 
 ## Config
 

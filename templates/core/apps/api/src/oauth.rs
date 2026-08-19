@@ -103,6 +103,7 @@ pub async fn google_callback(
     let id = Uuid::new_v4().to_string();
     let session_key = format!("session:{id}");
     st.cache.set(&session_key, &claims.email, 604800).await.ok();
+    crate::upsert_user(&st.pool, &id, &claims.email).await;
     let app_url = env::var("APP_URL").unwrap_or_else(|_| "/".into());
     (
         StatusCode::FOUND,
