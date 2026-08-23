@@ -1,15 +1,21 @@
+# build context MUST be the repo root: build.rs compiles ../packages/proto/db.proto
 FROM rust:1-slim AS build
-WORKDIR /app
-COPY Cargo.toml Cargo.lock ./
+WORKDIR /build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends protobuf-compiler pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# dependency cache: dummy main first so deps compile once
+COPY packages/proto packages/proto
+COPY db/Cargo.toml db/Cargo.lock ./
+COPY db/build.rs ./build.rs
 RUN mkdir src && echo "fn main(){}" > src/main.rs && cargo build --release || true
-COPY src src
-COPY migrations migrations
-# touch forces cargo to see real source as newer than the dummy build
-# (COPY preserves mtimes unreliably, so incremental reuse would keep the dummy)
+
+COPY db/src ./src
 RUN find src -type f -exec touch {} + && cargo build --release
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/target/release/api /usr/local/bin/api
-EXPOSE 8000
-CMD ["api"]
+COPY --from=build /build/target/release/db /usr/local/bin/db
+EXPOSE 8010 8011
+CMD ["db"]
