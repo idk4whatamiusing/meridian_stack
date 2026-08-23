@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package meridian.realtime.v1;
+
+option go_package = "github.com/idk4whatamiusing/meridian_stack/api/pb/realtimepb";
+
+// Realtime fans events out to every connected client (in-mem broker + Redis
+// pub/sub for horizontal scale). The api fires Broadcast after its own local
+// fanout - parallel fanouts, never a dependency chain.
+service Realtime {
+  rpc Broadcast(BroadcastRequest) returns (BroadcastReply);
+}
+
+message BroadcastRequest {
+  string message = 1;
+}
+message BroadcastReply {
+  bool ok = 1;
+}

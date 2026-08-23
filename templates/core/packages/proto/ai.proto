@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package meridian.ai.v1;
+
+option go_package = "github.com/idk4whatamiusing/meridian_stack/api/pb/aipb";
+
+// Ai owns ALL AI work: RAG (Python), LLM providers - Cloudflare Workers AI /
+// Bedrock (Go), and the local knowledge-base-only support LLM.
+service Ai {
+  // general chat: provider-aware, RAG-augmented
+  rpc Chat(ChatRequest) returns (ChatReply);
+  rpc ChatStream(ChatRequest) returns (stream ChatChunk);
+
+  // support: knowledge-base-only, local TinyLlama Q4 via llama.cpp
+  rpc SupportQuery(SupportQueryRequest) returns (stream SupportChunk);
+  rpc Ingest(IngestRequest) returns (IngestReply);
+
+  // baseline classifier (kept from the original template)
+  rpc Predict(PredictRequest) returns (PredictReply);
+}
+
+message ChatRequest {
+  string message = 1;
+  string system = 2;
+  bool use_rag = 3;
+  string user_id = 4;   // per-user semantic cache isolation
+  string session_id = 5;
+  string provider = 6;  // cloudflare | bedrock | openai ("" = AI_PROVIDER default)
+}
+
+message Source {
+  string id = 1;
+  string title = 2;
+  string text = 3;
+  float score = 4;
+}
+
+message ChatReply {
+  string reply = 1;
+  string model = 2;
+  repeated Source sources = 3;
+  bool cached = 4;
+}
+
+message ChatChunk {
+  string delta = 1;
+  bool done = 2;
+  repeated Source sources = 3; // set on first chunk (RAG runs before streaming)
+  bool cached = 4;
+}
+
+message SupportQueryRequest {
+  string message = 1;
+  string user_id = 2;
+}
+
+message SupportChunk {
+  string delta = 1;
+  bool done = 2;
+  repeated Source sources = 3;
+  bool cached = 4;
+}
+
+message IngestRequest {
+  repeated string documents = 1;      // raw text documents to chunk+embed
+  string collection = 2;              // "support" | "chat"
+}
+message IngestReply {
+  int32 chunks = 1;
+}
+
+message PredictRequest {
+  string text = 1;
+}
+message PredictReply {
+  string label = 1;
+}

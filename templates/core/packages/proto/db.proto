@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package meridian.db.v1;
+
+option go_package = "github.com/idk4whatamiusing/meridian_stack/api/pb/dbpb";
+
+// Db is the private Postgres gatekeeper. Only the Go api talks to it.
+service Db {
+  rpc UpsertUser(UpsertUserRequest) returns (UpsertUserReply);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersReply);
+
+  // chat sessions + history (Postgres is primary; Redis in api is the 7d cache)
+  rpc CreateChatSession(CreateChatSessionRequest) returns (CreateChatSessionReply);
+  rpc ListChatSessions(ListChatSessionsRequest) returns (ListChatSessionsReply);
+  rpc RenameChatSession(RenameChatSessionRequest) returns (RenameChatSessionReply);
+  rpc DeleteChatSession(DeleteChatSessionRequest) returns (DeleteChatSessionReply);
+  rpc AppendChatMessage(AppendChatMessageRequest) returns (AppendChatMessageReply);
+  rpc ListChatMessages(ListChatMessagesRequest) returns (ListChatMessagesReply);
+}
+
+message UpsertUserRequest {
+  string id = 1;
+  string email = 2;
+}
+message UpsertUserReply {
+  bool ok = 1;
+}
+
+message ListUsersRequest {
+  int32 limit = 1;
+}
+message User {
+  string id = 1;
+  string email = 2;
+}
+message ListUsersReply {
+  repeated User users = 1;
+}
+
+message CreateChatSessionRequest {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+}
+message CreateChatSessionReply {
+  bool ok = 1;
+}
+
+message ChatSession {
+  string id = 1;
+  string title = 2;
+  bool pinned = 3;
+  string updated_at = 4;
+}
+message ListChatSessionsRequest {
+  string user_id = 1;
+}
+message ListChatSessionsReply {
+  repeated ChatSession sessions = 1;
+}
+
+message RenameChatSessionRequest {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+}
+message RenameChatSessionReply {
+  bool ok = 1;
+}
+
+message DeleteChatSessionRequest {
+  string id = 1;
+  string user_id = 2;
+}
+message DeleteChatSessionReply {
+  bool ok = 1;
+}
+
+message ChatMessage {
+  string role = 1; // user | assistant
+  string content = 2;
+  string created_at = 3;
+}
+message AppendChatMessageRequest {
+  string session_id = 1;
+  string user_id = 2;
+  string role = 3;
+  string content = 4;
+}
+message AppendChatMessageReply {
+  bool ok = 1;
+}
+
+message ListChatMessagesRequest {
+  string session_id = 1;
+  string user_id = 2;
+  int32 limit = 3; // 0 = all
+}
+message ListChatMessagesReply {
+  repeated ChatMessage messages = 1;
+}
