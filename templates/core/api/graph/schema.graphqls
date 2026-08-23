@@ -1,0 +1,70 @@
+# Meridian GraphQL schema - the ONLY browser-facing surface (raw fetch + graphql-ws).
+# Auth rides the `session` HttpOnly cookie on POST, and connection_params.session
+# on the graphql-transport-ws handshake.
+
+type User {
+  id: ID!
+  email: String!
+}
+
+type Source {
+  id: ID!
+  title: String
+  text: String!
+  score: Float!
+}
+
+type ChatChunk {
+  delta: String!
+  done: Boolean!
+  sources: [Source!]!
+  cached: Boolean!
+}
+
+type ChatReply {
+  reply: String!
+  model: String!
+  sources: [Source!]!
+  cached: Boolean!
+}
+
+type ChatSession {
+  id: ID!
+  title: String!
+  pinned: Boolean!
+  updatedAt: String!
+}
+
+type Message {
+  role: String!
+  content: String!
+  createdAt: String!
+}
+
+type Query {
+  me: User
+  users(limit: Int = 50): [User!]!          # gRPC -> db (Rust), cached in Redis 7d
+  health: String!
+  chatSessions: [ChatSession!]!             # sidebar list (per user)
+  chatHistory(sessionId: ID!): [Message!]!  # Redis fast path, Postgres primary
+}
+
+type Mutation {
+  login(email: String!): User!              # dev login, sets session cookie
+  logout: Boolean!
+  broadcast(message: String!): Boolean!     # local hub + gRPC Realtime.Broadcast
+  createChatSession(title: String): ChatSession!
+  renameSession(id: ID!, title: String!): Boolean!
+  deleteSession(id: ID!): Boolean!
+  # general chat -> ai (Cloudflare Workers AI | Bedrock | OpenAI), RAG + semantic cache
+  chat(sessionId: ID!, message: String!, provider: String): ChatReply!
+  # knowledge-base-only support answer (local TinyLlama Q4)
+  supportQuery(message: String!): ChatReply!
+  ingestSupport(documents: [String!]!): Int!
+}
+
+type Subscription {
+  events: String!
+  chatStream(sessionId: ID!, message: String!, provider: String): ChatChunk!
+  supportStream(message: String!): ChatChunk!
+}
