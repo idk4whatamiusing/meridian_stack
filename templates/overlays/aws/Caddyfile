@@ -1,6 +1,6 @@
 {$DOMAIN} {
 	encode gzip
-	reverse_proxy web:3000
+	reverse_proxy ui:3000
 }
 
 api.{$DOMAIN} {

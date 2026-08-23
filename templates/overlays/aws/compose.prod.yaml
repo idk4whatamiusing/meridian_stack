@@ -5,24 +5,32 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - web
-      - api
-      - realtime
-      - ai
+      ui:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      realtime:
+        condition: service_healthy
+      ai:
+        condition: service_started
 
-  web:
+  ui:
     build:
-      context: ../apps/web
+      context: .
+      dockerfile: apps/ui/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -31,7 +39,8 @@ services:
       start_period: 40s
 
   api:
-    build: ../apps/api
+    build: ./apps/api
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@postgres:5432/app
       REDIS_URL: redis://redis:6379
@@ -44,11 +53,19 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       APP_URL: ${APP_URL}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   realtime:
-    build: ../apps/realtime
+    build: ./apps/realtime
     restart: unless-stopped
     environment:
       BACKEND_SECRET: ${BACKEND_SECRET}
@@ -65,7 +82,7 @@ services:
       start_period: 40s
 
   ai:
-    build: ../apps/ai
+    build: ./apps/ai
     restart: unless-stopped
     ports:
       - "8002:8002"

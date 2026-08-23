@@ -34,8 +34,12 @@ data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"]
   filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-noble-24.04-amd64-server-*"]
+    name = "name"
+    # 24.04 moved to the gp3 naming scheme; keep the legacy pattern as fallback
+    values = [
+      "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*",
+      "ubuntu/images/hvm-ssd/ubuntu-noble-24.04-amd64-server-*",
+    ]
   }
   filter {
     name   = "virtualization-type"
@@ -44,12 +48,12 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_key_pair" "app" {
-  key_name   = "omnistack"
-  public_key = file(var.ssh_public_key_path)
+  key_name   = "meridian"
+  public_key = file(pathexpand(var.ssh_public_key_path))
 }
 
 resource "aws_security_group" "app" {
-  name        = "omnistack-app"
+  name        = "meridian-app"
   description = "web (80/443) + ssh (22)"
 
   ingress {
@@ -95,7 +99,7 @@ resource "aws_instance" "app" {
     systemctl enable --now docker
     usermod -aG docker ubuntu
   EOF
-  tags = { Name = "omnistack-app" }
+  tags = { Name = "meridian-app" }
 }
 
 resource "aws_eip" "app" {

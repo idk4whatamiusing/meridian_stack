@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 24
       - run: node src/cli.ts --name smoke --variant both --yes
-      - run: ls smoke/apps/api/Cargo.toml smoke/apps/realtime/gleam.toml smoke/apps/web/package.json smoke/DEPLOY.md
+      - run: ls smoke/apps/api/Cargo.toml smoke/apps/realtime/gleam.toml smoke/apps/ui/package.json smoke/DEPLOY.md
 
   api:
     runs-on: ubuntu-latest
@@ -47,16 +47,11 @@ jobs:
       - run: node $GITHUB_WORKSPACE/src/cli.ts --name smoke --variant both --yes
       - run: gleam build
 
-  web:
+  ui:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: smoke/apps/web
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
+      - uses: oven-sh/setup-bun@v2
       - run: node $GITHUB_WORKSPACE/src/cli.ts --name smoke --variant both --yes
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
+        working-directory: /tmp
+      - run: cd /tmp/smoke && bun install --frozen-lockfile && bun run build:ui

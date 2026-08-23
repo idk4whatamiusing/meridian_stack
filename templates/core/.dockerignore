@@ -1,0 +1,21 @@
+# build contexts are the monorepo root (ui/Dockerfile does `COPY . .`)
+node_modules
+**/node_modules
+.next
+**/.next
+out
+**/out
+target
+.git
+.terraform
+*.tfstate*
+.env
+.env.*
+!.env.example
+.dev.vars
+build
+.gleam
+__pycache__
+.venv
+Dockerfile
+compose*.yaml

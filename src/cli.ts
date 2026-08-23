@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
@@ -48,8 +48,11 @@ for (let i = 0; i < args.length; i++) {
 }
 
 const rl = readline.createInterface({ input, output });
-const name =
+const nameArg =
   (flags.get("name") ?? positional[0] ?? (flags.has("yes") ? "my-app" : (await rl.question("Project name: ")).trim())) || "my-app";
+// a path is allowed for --name, but the project/package name is its basename
+const dest = isAbsolute(nameArg) ? nameArg : join(process.cwd(), nameArg);
+const name = basename(dest);
 let variant =
   (flags.get("variant") ?? positional[1] ?? (flags.has("yes") ? "both" : (await rl.question("Variant [cloudflare/aws/both] (default: both): ")).trim()))
     .trim()
@@ -62,7 +65,6 @@ if (!["cloudflare", "aws", "both"].includes(variant)) {
   process.exit(1);
 }
 
-const dest = isAbsolute(name) ? name : join(process.cwd(), name);
 if (existsSync(dest)) {
   console.error(`${dest} already exists`);
   process.exit(1);
@@ -108,7 +110,7 @@ console.log(`
 done! next steps:
   cd ${name}
   docker compose up -d            # postgres + redis
-  bun run dev:web                 # Next.js on :3000 (terminal 1)
+  bun run dev:ui                  # Next.js on :3000 (terminal 1)
   bun run dev:api                 # Rust API on :8000 (terminal 2)
   bun run dev:realtime            # Gleam on :8001 (terminal 3)
   cd apps/ai && uv run --with-requirements requirements.txt uvicorn main:app --port 8002

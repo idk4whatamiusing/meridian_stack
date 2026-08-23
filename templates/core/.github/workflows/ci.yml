@@ -6,15 +6,13 @@ on:
   pull_request:
 
 jobs:
-  web:
+  ui:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install --workspaces --include-workspace-root --no-audit --no-fund
-      - run: npm run build --workspace web
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build:ui
 
   api:
     runs-on: ubuntu-latest

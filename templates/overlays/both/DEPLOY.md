@@ -24,7 +24,7 @@ Paste the returned `id` and `preview_id` into `apps/gateway/wrangler.toml`.
 
 ## 2. Build the web static export
 
-    BUILD_TARGET=export npm run build --workspace web   # outputs apps/web/out
+    BUILD_TARGET=export npm run build --workspace ui    # outputs apps/ui/out
 
 ## 3. Run locally
 

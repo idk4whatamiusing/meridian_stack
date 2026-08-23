@@ -12,7 +12,7 @@ Paste the returned `id` and `preview_id` into `apps/gateway/wrangler.toml`.
 
 ## 2. Build the web static export
 
-    bun run build:web          # outputs apps/web/out
+    bun run build:ui           # outputs apps/ui/out
 
 ## 3. Run locally
 

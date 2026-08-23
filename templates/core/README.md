@@ -13,7 +13,7 @@ included.
     npm create meridian-stack@latest cloudflare my-app
     cd <name>
     docker compose up -d        # postgres + redis (dev infra only)
-    bun run dev:web             # Next.js  :3000   (terminal 1)
+    bun run dev:ui              # Next.js  :3000   (terminal 1)
     bun run dev:api             # Rust     :8000   (terminal 2)
     bun run dev:realtime        # Gleam    :8001   (terminal 3)
     cd apps/ai && uv run --with-requirements requirements.txt uvicorn main:app --port 8002
@@ -25,7 +25,7 @@ and you'll see live SSE events.
 
 | Path | Tech | What it is |
 |---|---|---|
-| `apps/web` | Next.js 16 + Tailwind 4 | SSR frontend; `output: export` on the Cloudflare flavor |
+| `apps/ui` | Next.js 16 + Tailwind 4 | SSR frontend; `output: export` on the Cloudflare flavor |
 | `apps/api` | Rust axum 0.8, SQLx, Redis, reqwest | REST + GraphQL (`/api/graphql` + GraphiQL) + `/events` SSE + `/ws` + `/api/broadcast`; `Cache` trait: **kv** (CF KV) or **redis**; looks up sessions from Redis |
 | `apps/realtime` | Gleam + mist | SSE + WS fanout via an in-process broker, fanned out to Redis pub/sub when `REDIS_URL` is set (horizontal scale) |
 | `apps/ai` | Python FastAPI | `/chat` via any OpenAI-compatible API (`OPENAI_API_KEY`/`OPENAI_BASE_URL`), baseline `/predict` classifier, `/train` hook |
@@ -68,7 +68,7 @@ checks on every PR; the Cloudflare flavor also deploys the gateway worker on pus
 `CLOUDFLARE_ACCOUNT_ID`, or `SSH_HOST`/`SSH_USER`/`SSH_KEY`). AWS infrastructure via
 `infra/` (Terraform: EC2 + SG + EIP + docker install). Biggest knobs:
 - `CACHE_BACKEND` (`redis` default | `kv`) on the API
-- `NEXT_PUBLIC_API_URL` in `apps/web` (empty = same-origin; set `http://localhost:8000` in AWS dev)
+- `NEXT_PUBLIC_API_URL` in `apps/ui` (empty = same-origin; set `http://localhost:8000` in AWS dev)
 - `API_ORIGIN` + `BACKEND_SECRET` in the gateway's `.dev.vars` / prod vars
 
 ## Deploy
