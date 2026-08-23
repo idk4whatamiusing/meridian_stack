@@ -34,7 +34,7 @@ lore" this template was born to remove).
 
 - This runs one instance of every service (docker compose). Horizontal scale
   = multiple boxes + a load balancer; that's when realtime needs the Redis
-  pub/sub broker instead of its in-memory fanout (see apps/realtime/src/broker.gleam).
+  pub/sub broker instead of its in-memory fanout (see realtime/src/broker.gleam).
 - VPC subnets/peering, RDS instead of container Postgres, ECR: account-level
   choices, add them when the workloads justify it - the API talks to anything
   that speaks Postgres/Redis.

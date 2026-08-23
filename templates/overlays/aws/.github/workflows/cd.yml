@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/**"
+      - "**"
       - "compose.prod.yaml"
       - "Caddyfile"
 

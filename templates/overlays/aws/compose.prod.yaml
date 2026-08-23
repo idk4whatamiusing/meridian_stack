@@ -24,7 +24,7 @@ services:
   ui:
     build:
       context: .
-      dockerfile: apps/ui/Dockerfile
+      dockerfile: ui/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
     restart: unless-stopped
@@ -38,34 +38,60 @@ services:
       retries: 3
       start_period: 40s
 
+  # public GraphQL API (Go)
   api:
-    build: ./apps/api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@postgres:5432/app
-      REDIS_URL: redis://redis:6379
-      CACHE_BACKEND: redis
+      REDIS_ADDR: redis:6379
+      DB_GRPC_ADDR: db:8010
+      AI_GRPC_ADDR: ai:8002
+      REALTIME_URL: http://realtime:8001
       BACKEND_SECRET: ${BACKEND_SECRET}
+      APP_URL: ${APP_URL}
       PORT: "8000"
-      # Google OAuth (see .env.example)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
-      APP_URL: ${APP_URL}
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+      realtime:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 15s
 
+  # private Postgres gatekeeper (Rust tonic :8010 + healthz :8011)
+  db:
+    build:
+      context: .
+      dockerfile: db/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@postgres:5432/app
+      BACKEND_SECRET: ${BACKEND_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # events fanout (Gleam)
   realtime:
-    build: ./apps/realtime
+    build: ./realtime
     restart: unless-stopped
     environment:
       BACKEND_SECRET: ${BACKEND_SECRET}
@@ -81,20 +107,55 @@ services:
       retries: 3
       start_period: 40s
 
+  # all AI work (Go providers + Python RAG sidecar in one image)
   ai:
-    build: ./apps/ai
+    build:
+      context: .
+      dockerfile: ai/Dockerfile
     restart: unless-stopped
-    ports:
-      - "8002:8002"
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@postgres:5432/app
+      REDIS_ADDR: redis://redis:6379
+      BACKEND_SECRET: ${BACKEND_SECRET}
+      AI_PROVIDER: ${AI_PROVIDER:-cloudflare}
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
+      CF_API_TOKEN: ${CF_API_TOKEN}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL}
+      SUPPORT_LLM_URL: http://support-llm:8080/v1
+      RAG_URL: http://localhost:8003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8002/health')"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 20s
+
+  # local support LLM (llama.cpp, OpenAI-compatible). Pull the model once:
+  #   make support-llm   (downloads TinyLlama Q4 GGUF to the named volume)
+  support-llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    command: >
+      -m /models/tinyllama-1.1b-chat-q4_k_m.gguf
+      --host 0.0.0.0 --port 8080 -c 4096
+    volumes:
+      - models:/models
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16   # vector extension for RAG (0002_rag.sql)
     restart: unless-stopped
     environment:
       POSTGRES_USER: app
@@ -111,6 +172,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: ["redis-server", "--maxmemory-policy", "allkeys-lru"]  # caches grow for 7d; LRU keeps RAM sane
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -121,3 +183,4 @@ volumes:
   pgdata: {}
   caddy_data: {}
   caddy_config: {}
+  models: {}

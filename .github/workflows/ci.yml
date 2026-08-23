@@ -18,24 +18,31 @@ jobs:
 
   api:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: smoke/apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: api/go.sum
+      - run: node $GITHUB_WORKSPACE/src/cli.ts --name smoke --variant both --yes
+        working-directory: /tmp
+      - run: cd /tmp/smoke/api && go build ./... && go vet ./...
+
+  db:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: smoke/apps/api
+          workspaces: db
+      - uses: arduino/setup-protoc@v3
       - run: node $GITHUB_WORKSPACE/src/cli.ts --name smoke --variant both --yes
-      - run: cargo build
-      - run: cargo test
+        working-directory: /tmp
+      - run: cargo build --manifest-path /tmp/smoke/db/Cargo.toml
 
   realtime:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: smoke/apps/realtime
     steps:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
@@ -45,7 +52,8 @@ jobs:
         with:
           version: "1.18.1"
       - run: node $GITHUB_WORKSPACE/src/cli.ts --name smoke --variant both --yes
-      - run: gleam build
+        working-directory: /tmp
+      - run: cd /tmp/smoke/realtime && gleam build
 
   ui:
     runs-on: ubuntu-latest

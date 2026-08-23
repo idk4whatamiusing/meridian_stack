@@ -16,7 +16,7 @@ included.
     bun run dev:ui              # Next.js  :3000   (terminal 1)
     bun run dev:api             # Rust     :8000   (terminal 2)
     bun run dev:realtime        # Gleam    :8001   (terminal 3)
-    cd apps/ai && uv run --with-requirements requirements.txt uvicorn main:app --port 8002
+    go run ./api & cargo run --manifest-path db/Cargo.toml &   # api + db
 
 Open http://localhost:3000/dashboard, click **dev login** - it creates a session
 and you'll see live SSE events.
@@ -25,11 +25,13 @@ and you'll see live SSE events.
 
 | Path | Tech | What it is |
 |---|---|---|
-| `apps/ui` | Next.js 16 + Tailwind 4 | SSR frontend; `output: export` on the Cloudflare flavor |
-| `apps/api` | Rust axum 0.8, SQLx, Redis, reqwest | REST + GraphQL (`/api/graphql` + GraphiQL) + `/events` SSE + `/ws` + `/api/broadcast`; `Cache` trait: **kv** (CF KV) or **redis**; looks up sessions from Redis |
-| `apps/realtime` | Gleam + mist | SSE + WS fanout via an in-process broker, fanned out to Redis pub/sub when `REDIS_URL` is set (horizontal scale) |
-| `apps/ai` | Python FastAPI | `/chat` via any OpenAI-compatible API (`OPENAI_API_KEY`/`OPENAI_BASE_URL`), baseline `/predict` classifier, `/train` hook |
-| `packages/shared` | TypeScript | typed `createClient` SDK for the API (me/login/logout/broadcast/graphql/events) used by the dashboard |
+| `ui/` | Next.js 16 + Tailwind 4 | SSR frontend; `output: export` on the Cloudflare flavor |
+| `api/` | Go (chi + gqlgen + go-redis) | the public GraphQL API (`/api/graphql`, graphql-transport-ws subscriptions), Google OAuth, sessions; owns ALL Redis: sessions, 7-day caches, semantic prompt cache, chat-history fast path |
+| `db/` | Rust (tonic + SQLx) | private Postgres gatekeeper :8010 — users, chat sessions/history, RAG documents; migrations on boot; healthz :8011 |
+| `realtime/` | Gleam + mist | events fanout (SSE/WS + broker), Redis pub/sub for horizontal scale; notified by api on broadcast |
+| `ai/` | Go + Python hybrid | ALL AI work: gRPC Ai server (CF Workers AI / Bedrock / OpenAI streaming chat) + Python RAG sidecar (pgvector top-k, per-user semantic cache); support = local TinyLlama Q4 via llama.cpp (knowledge-base-only, no external provider) |
+| `packages/proto` | protobuf | db/realtime/ai contracts (generated code committed) |
+| `packages/shared` | TypeScript | raw `fetch` + `graphql-ws` client used by ui |
 | `gateway` (CF flavor only) | Hono Worker | dev-login / sessions in KV, proxies `/api/*` + `/events` to the backend with `x-user-id` + `x-user-email` + `x-backend-secret`, serves the web export |
 | `compose.prod.yaml` (AWS flavor) | Caddy + Docker | one-command prod stack with auto-TLS on `*.YOUR-IP.sslip.io` |
 
@@ -68,7 +70,7 @@ checks on every PR; the Cloudflare flavor also deploys the gateway worker on pus
 `CLOUDFLARE_ACCOUNT_ID`, or `SSH_HOST`/`SSH_USER`/`SSH_KEY`). AWS infrastructure via
 `infra/` (Terraform: EC2 + SG + EIP + docker install). Biggest knobs:
 - `CACHE_BACKEND` (`redis` default | `kv`) on the API
-- `NEXT_PUBLIC_API_URL` in `apps/ui` (empty = same-origin; set `http://localhost:8000` in AWS dev)
+- `NEXT_PUBLIC_API_URL` in `ui` (empty = same-origin; set `http://localhost:8000` in AWS dev)
 - `API_ORIGIN` + `BACKEND_SECRET` in the gateway's `.dev.vars` / prod vars
 
 ## Deploy

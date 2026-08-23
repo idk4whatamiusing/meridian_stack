@@ -5,18 +5,18 @@ e.g. on an EC2 behind `https://api.YOUR-IP.sslip.io`, or `localhost` during `wra
 
 ## 1. Create the KV namespace
 
-    cd apps/gateway
+    cd gateway
     npx wrangler kv namespace create SESSIONS
 
-Paste the returned `id` and `preview_id` into `apps/gateway/wrangler.toml`.
+Paste the returned `id` and `preview_id` into `gateway/wrangler.toml`.
 
 ## 2. Build the web static export
 
-    bun run build:ui           # outputs apps/ui/out
+    bun run build:ui           # outputs ui/out
 
 ## 3. Run locally
 
-    cd apps/gateway
+    cd gateway
     cp .dev.vars.example .dev.vars    # set API_ORIGIN
     npx wrangler dev
 
