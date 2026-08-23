@@ -1,5 +1,5 @@
 # build context = repo root (needs packages/proto via api/pb? no - pb is committed Go code)
-FROM golang:1.23-alpine AS build
+FROM golang:1-alpine AS build
 WORKDIR /src
 COPY api/go.mod api/go.sum ./
 RUN go mod download

@@ -1,11 +1,11 @@
-# build context = repo ROOT (imports the api module for the shared aipb package)
-FROM golang:1.23-alpine AS gobuild
-WORKDIR /src
-COPY ai/go.mod ai/go.sum* ./
+# build context = repo ROOT (the Ai server imports api/pb via a replace directive)
+FROM golang:1-alpine AS gobuild
+WORKDIR /build
 COPY api/ api/
-RUN cd . && go mod download 2>/dev/null || true
-COPY ai/ .
-RUN CGO_ENABLED=0 go build -o /out/ai ./cmd/ai
+COPY ai/ ai/
+# ai/go.mod has: replace .../api => ../api  -> resolves to /build/api
+WORKDIR /build/ai
+RUN go mod download && CGO_ENABLED=0 go build -o /out/ai ./cmd/ai
 
 FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
