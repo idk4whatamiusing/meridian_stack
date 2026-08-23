@@ -7,10 +7,10 @@ export default function Home() {
         Auth at the edge: Cloudflare Workers + KV or Redis on AWS.
       </p>
       <ul className="grid gap-2 text-sm text-zinc-400">
-        <li><code className="text-emerald-400">apps/ui</code> Next.js :3000</li>
-        <li><code className="text-emerald-400">apps/api</code> Rust axum :8000 - /api/health, /api/me, /api/events (SSE), /api/ws, cache</li>
-        <li><code className="text-emerald-400">apps/realtime</code> Gleam :8001 - /events + /ws fanout</li>
-        <li><code className="text-emerald-400">apps/ai</code> Python FastAPI :8002 - predict/train stubs</li>
+        <li><code className="text-emerald-400">ui</code> Next.js :3000</li>
+        <li><code className="text-emerald-400">api</code> Go :8000 - GraphQL + OAuth; <code>db</code> Rust tonic :8010 - Postgres gatekeeper</li>
+        <li><code className="text-emerald-400">realtime</code> Gleam :8001 - events fanout + Redis pub/sub</li>
+        <li><code className="text-emerald-400">ai</code> hybrid Go+Python :8002 - RAG, providers, local support LLM</li>
       </ul>
       <a href="/dashboard" className="w-fit rounded-lg bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
         Dashboard

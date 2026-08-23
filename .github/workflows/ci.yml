@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 24
       - run: node src/cli.ts --name smoke --variant both --yes
-      - run: ls smoke/apps/api/Cargo.toml smoke/apps/realtime/gleam.toml smoke/apps/ui/package.json smoke/DEPLOY.md
+      - run: ls smoke/db/Cargo.toml smoke/realtime/gleam.toml smoke/ui/package.json smoke/api/go.mod smoke/DEPLOY.md
 
   api:
     runs-on: ubuntu-latest

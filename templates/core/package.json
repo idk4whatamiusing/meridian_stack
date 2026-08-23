@@ -2,13 +2,14 @@
   "name": "{{name}}",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "ui",
     "packages/*"
   ],
   "scripts": {
-    "dev:ui": "bun --cwd apps/ui dev",
-    "dev:api": "cargo run --manifest-path apps/api/Cargo.toml",
-    "dev:realtime": "cd apps/realtime && gleam run",
-    "build:ui": "bun --cwd apps/ui build"
+    "dev:ui": "bun --cwd ui dev",
+    "dev:db": "cargo run --manifest-path db/Cargo.toml",
+    "dev:api": "go run ./api",
+    "dev:realtime": "cd realtime && gleam run",
+    "build:ui": "bun --cwd ui build"
   }
 }

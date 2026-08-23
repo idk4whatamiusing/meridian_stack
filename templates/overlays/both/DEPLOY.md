@@ -17,18 +17,18 @@ Prereqs: `bun`, a Cloudflare account, and a reachable backend for `API_ORIGIN`
 
 ## 1. Create the KV namespace
 
-    cd apps/gateway
+    cd gateway
     npx wrangler kv namespace create SESSIONS
 
-Paste the returned `id` and `preview_id` into `apps/gateway/wrangler.toml`.
+Paste the returned `id` and `preview_id` into `gateway/wrangler.toml`.
 
 ## 2. Build the web static export
 
-    BUILD_TARGET=export npm run build --workspace ui    # outputs apps/ui/out
+    BUILD_TARGET=export npm run build --workspace ui    # outputs ui/out
 
 ## 3. Run locally
 
-    cd apps/gateway
+    cd gateway
     cp .dev.vars.example .dev.vars    # set API_ORIGIN
     npx wrangler dev
 

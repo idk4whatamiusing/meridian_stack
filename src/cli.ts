@@ -113,6 +113,6 @@ done! next steps:
   bun run dev:ui                  # Next.js on :3000 (terminal 1)
   bun run dev:api                 # Rust API on :8000 (terminal 2)
   bun run dev:realtime            # Gleam on :8001 (terminal 3)
-  cd apps/ai && uv run --with-requirements requirements.txt uvicorn main:app --port 8002
+  go run ./api & cargo run --manifest-path db/Cargo.toml & cd ai && uv run main.py
   open http://localhost:3000/dashboard
 deploy: see DEPLOY.md (${variant === "both" ? "cloudflare + aws" : variant} flavor) in the project root`);

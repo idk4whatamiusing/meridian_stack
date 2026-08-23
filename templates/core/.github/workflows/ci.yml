@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/api
+        working-directory: db
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/realtime
+        working-directory: realtime
     steps:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
@@ -48,15 +48,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m compileall -q apps/ai
+      - run: python -m compileall -q ai
 
   # Cloudflare flavor only: the gateway dir only exists in that overlay
   gateway:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/gateway
-    if: ${{ hashFiles('apps/gateway/**') != '' }}
+        working-directory: gateway
+    if: ${{ hashFiles('gateway/**') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
