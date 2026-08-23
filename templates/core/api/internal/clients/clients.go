@@ -1,9 +1,15 @@
-// Package clients - gRPC clients for the private mesh: db (Rust), realtime
-// (Gleam), ai (hybrid). Every call carries x-backend-secret metadata.
+// Package clients - private mesh callers: db (Rust, gRPC), ai (hybrid, gRPC),
+// realtime (Gleam - notified over its existing secret-gated /broadcast hook;
+// the gRPC contract lives in packages/proto/realtime.proto for the upgrade).
 package clients
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -11,21 +17,21 @@ import (
 
 	aipb "github.com/idk4whatamiusing/meridian_stack/api/pb/aipb"
 	dbpb "github.com/idk4whatamiusing/meridian_stack/api/pb/dbpb"
-	realtimepb "github.com/idk4whatamiusing/meridian_stack/api/pb/realtimepb"
 )
 
 type Config struct {
-	DBAddr       string
-	RealtimeAddr string
-	AiAddr       string
-	Secret       string
+	DBAddr      string
+	RealtimeURL string // e.g. http://realtime:8001
+	AiAddr      string
+	Secret      string
 }
 
 type Clients struct {
 	Secret   string
 	DB       dbpb.DbClient
-	Realtime realtimepb.RealtimeClient
 	Ai       aipb.AiClient
+	realtime *http.Client
+	base     string
 }
 
 func New(ctx context.Context, cfg Config) (*Clients, error) {
@@ -36,10 +42,6 @@ func New(ctx context.Context, cfg Config) (*Clients, error) {
 	if err != nil {
 		return nil, err
 	}
-	rtConn, err := dial(cfg.RealtimeAddr)
-	if err != nil {
-		return nil, err
-	}
 	aiConn, err := dial(cfg.AiAddr)
 	if err != nil {
 		return nil, err
@@ -47,14 +49,32 @@ func New(ctx context.Context, cfg Config) (*Clients, error) {
 	return &Clients{
 		Secret:   cfg.Secret,
 		DB:       dbpb.NewDbClient(dbConn),
-		Realtime: realtimepb.NewRealtimeClient(rtConn),
 		Ai:       aipb.NewAiClient(aiConn),
+		realtime: &http.Client{Timeout: 5 * time.Second},
+		base:     cfg.RealtimeURL,
 	}, nil
 }
 
-// Ctx returns a context carrying the backend secret for one call.
+// Ctx returns a context carrying the backend secret for one gRPC call.
 func (c *Clients) Ctx(ctx context.Context) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, "x-backend-secret", c.Secret)
 }
 
-type User = dbpb.User
+// NotifyRealtime fires fanout #2 (parallel, best-effort).
+func (c *Clients) NotifyRealtime(message string) {
+	go func() {
+		body, _ := json.Marshal(map[string]string{"message": message})
+		req, err := http.NewRequest(http.MethodPost, c.base+"/broadcast", bytes.NewReader(body))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("x-backend-secret", c.Secret)
+		resp, err := c.realtime.Do(req)
+		if err != nil {
+			fmt.Printf("realtime notify: %v\n", err)
+			return
+		}
+		resp.Body.Close()
+	}()
+}

@@ -13,7 +13,6 @@ import (
 	"github.com/idk4whatamiusing/meridian_stack/api/internal/store"
 	aipb "github.com/idk4whatamiusing/meridian_stack/api/pb/aipb"
 	dbpb "github.com/idk4whatamiusing/meridian_stack/api/pb/dbpb"
-	realtimepb "github.com/idk4whatamiusing/meridian_stack/api/pb/realtimepb"
 )
 
 // ---- mutations ----
@@ -43,13 +42,7 @@ func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
 
 func (r *mutationResolver) Broadcast(ctx context.Context, message string) (bool, error) {
 	r.Hub.Broadcast("api: " + message) // parallel fanout #1: local subscribers
-	go func() {                        // parallel fanout #2: realtime service (never blocks the mutation)
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		if _, err := r.Clients.Realtime.Broadcast(r.Clients.Ctx(ctx), &realtimepb.BroadcastRequest{Message: message}); err != nil {
-			log.Printf("realtime broadcast: %v", err)
-		}
-	}()
+	r.Clients.NotifyRealtime(message)  // parallel fanout #2: gleam realtime (best-effort)
 	return true, nil
 }
 

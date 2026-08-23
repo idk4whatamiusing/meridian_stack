@@ -40,10 +40,10 @@ func main() {
 	rdb := redis.NewClient(&redis.Options{Addr: envOr("REDIS_ADDR", "localhost:6379")})
 	st := store.New(rdb, 7*24*time.Hour) // every cache = 7 days
 	cl, err := clients.New(ctx, clients.Config{
-		DBAddr:       envOr("DB_GRPC_ADDR", "localhost:8010"),
-		RealtimeAddr: envOr("REALTIME_GRPC_ADDR", "localhost:8001"),
-		AiAddr:       envOr("AI_GRPC_ADDR", "localhost:8002"),
-		Secret:       secret,
+		DBAddr:      envOr("DB_GRPC_ADDR", "localhost:8010"),
+		RealtimeURL: envOr("REALTIME_URL", "http://localhost:8001"),
+		AiAddr:      envOr("AI_GRPC_ADDR", "localhost:8002"),
+		Secret:      secret,
 	})
 	if err != nil {
 		log.Fatalf("grpc dial: %v", err)
