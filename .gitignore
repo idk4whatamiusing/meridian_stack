@@ -8,3 +8,4 @@ bun.lock
 .next/
 out/
 .DS_Store
+*.tgz
