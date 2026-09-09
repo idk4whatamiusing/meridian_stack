@@ -9,3 +9,4 @@ bun.lock
 out/
 .DS_Store
 *.tgz
+.terraform/

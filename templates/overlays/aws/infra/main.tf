@@ -11,7 +11,12 @@ terraform {
 }
 
 variable "region" {
-  default = "us-east-1"
+  default = "ap-south-2"
+
+  validation {
+    condition     = var.region == "ap-south-2"
+    error_message = "This stack deploys to ap-south-2 (Hyderabad) only."
+  }
 }
 
 variable "instance_type" {
@@ -99,7 +104,7 @@ resource "aws_instance" "app" {
     systemctl enable --now docker
     usermod -aG docker ubuntu
   EOF
-  tags = { Name = "meridian-app" }
+  tags      = { Name = "meridian-app" }
 }
 
 resource "aws_eip" "app" {
