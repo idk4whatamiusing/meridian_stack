@@ -1,0 +1,15 @@
+# both flavor: the UI is served by the Cloudflare Worker - EC2 runs
+# api + backend services only, so there is deliberately NO apex block here.
+# Point your apex domain at Cloudflare; these subdomains terminate on EC2.
+api.{$DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}
+
+realtime.{$DOMAIN} {
+	reverse_proxy realtime:8001
+}
+
+ai.{$DOMAIN} {
+	reverse_proxy ai:8002
+}

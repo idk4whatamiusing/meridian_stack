@@ -1,4 +1,4 @@
-# dev infra only - services run locally (bun / cargo / gleam / uv) for fast iteration
+# dev infra only - services run locally (npm / cargo / gleam / go / uv) for fast iteration
 services:
   postgres:
     image: postgres:16-alpine

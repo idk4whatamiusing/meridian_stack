@@ -13,9 +13,10 @@ included.
     npm create meridian-stack@latest cloudflare my-app
     cd <name>
     docker compose up -d        # postgres + redis (dev infra only)
-    bun run dev:ui              # Next.js  :3000   (terminal 1)
-    bun run dev:api             # Rust     :8000   (terminal 2)
-    bun run dev:realtime        # Gleam    :8001   (terminal 3)
+    npm run dev:ui              # Next.js  :3000   (terminal 1)
+    go run ./api                # Go API   :8000   (terminal 2)
+    cargo run --manifest-path db/Cargo.toml   # Rust DB gatekeeper (terminal 3)
+    cd realtime && gleam run    # Gleam    :8001   (terminal 4)
     go run ./api & cargo run --manifest-path db/Cargo.toml &   # api + db
 
 Open http://localhost:3000/dashboard, click **dev login** - it creates a session

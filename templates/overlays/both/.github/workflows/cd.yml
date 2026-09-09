@@ -10,9 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: BUILD_TARGET=export bun run build:ui
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: BUILD_TARGET=export npm run build:ui
       - run: npm install --no-audit --no-fund
         working-directory: gateway
       - name: Deploy gateway worker
@@ -34,6 +37,9 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd ~/app || exit 1
+            # both flavor: ui/ is served by the Cloudflare Worker - never check it out on EC2
+            git sparse-checkout init --no-cone 2>/dev/null || true
+            git sparse-checkout set '/*' '!ui/' || exit 1
             git pull --ff-only || exit 1
             docker compose -f compose.prod.yaml up -d --build
             docker image prune -f

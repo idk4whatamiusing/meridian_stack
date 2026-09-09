@@ -1,6 +1,6 @@
 # Cloudflare deploy
 
-Prereqs: `bun`, a Cloudflare account, and a reachable backend for `API_ORIGIN` (your Rust API + Postgres + Redis,
+Prereqs: `node 24 + npm`, a Cloudflare account, and a reachable backend for `API_ORIGIN` (your Rust API + Postgres + Redis,
 e.g. on an EC2 behind `https://api.YOUR-IP.sslip.io`, or `localhost` during `wrangler dev`).
 
 ## 1. Create the KV namespace
@@ -12,7 +12,7 @@ Paste the returned `id` and `preview_id` into `gateway/wrangler.toml`.
 
 ## 2. Build the web static export
 
-    bun run build:ui           # outputs ui/out
+    npm run build:ui           # outputs ui/out
 
 ## 3. Run locally
 

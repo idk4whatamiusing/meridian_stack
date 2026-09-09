@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -81,6 +81,19 @@ if (variant === "both") {
   copyTree(join(templates, "overlays", variant), dest);
 }
 
+// overlays may ship a .rmfiles manifest (one relative path per line, # comments)
+// listing scaffold files to delete - e.g. both/ drops ui/Dockerfile since EC2
+// never builds the UI container. The manifest itself is not shipped.
+const rmfiles = join(dest, ".rmfiles");
+if (existsSync(rmfiles)) {
+  for (const line of readFileSync(rmfiles, "utf8").split("\n")) {
+    const p = line.trim();
+    if (!p || p.startsWith("#") || p.startsWith("..") || p.startsWith("/")) continue;
+    rmSync(join(dest, p), { recursive: true, force: true });
+  }
+  rmSync(rmfiles);
+}
+
 const walk = (dir: string, fn: (f: string) => void) => {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
@@ -100,19 +113,19 @@ walk(dest, (f) => {
 execSync("git init -q", { cwd: dest, stdio: "ignore" });
 
 try {
-  const bunHome = join(process.env.HOME ?? "", ".bun", "bin");
-  execSync("bun install", { cwd: dest, stdio: "inherit", env: { ...process.env, PATH: `${bunHome}:${process.env.PATH ?? ""}` } });
+  execSync("npm install --no-audit --no-fund", { cwd: dest, stdio: "inherit" });
 } catch {
-  console.log("bun install failed or bun is missing - run `bun install` inside the project");
+  console.log("npm install failed - run `npm install` inside the project");
 }
 
 console.log(`
 done! next steps:
   cd ${name}
   docker compose up -d            # postgres + redis
-  bun run dev:ui                  # Next.js on :3000 (terminal 1)
-  bun run dev:api                 # Rust API on :8000 (terminal 2)
-  bun run dev:realtime            # Gleam on :8001 (terminal 3)
-  go run ./api & cargo run --manifest-path db/Cargo.toml & cd ai && uv run main.py
+  npm run dev:ui                  # Next.js on :3000 (terminal 1)
+  go run ./api                    # Go API on :8000 (terminal 2)
+  cargo run --manifest-path db/Cargo.toml   # Rust DB gatekeeper (terminal 3)
+  cd realtime && gleam run        # Gleam realtime on :8001 (terminal 4)
+  cd ai && uv run main.py         # AI service (terminal 5)
   open http://localhost:3000/dashboard
 deploy: see DEPLOY.md (${variant === "both" ? "cloudflare + aws" : variant} flavor) in the project root`);

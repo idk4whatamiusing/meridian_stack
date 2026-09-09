@@ -1,4 +1,4 @@
-# build contexts are the monorepo root (ui/Dockerfile does `COPY . .`)
+# build contexts are the monorepo root (the ui image build does `COPY . .`)
 node_modules
 **/node_modules
 .next

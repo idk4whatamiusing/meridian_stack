@@ -1,0 +1,167 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      realtime:
+        condition: service_healthy
+      ai:
+        condition: service_started
+
+  # public GraphQL API (Go)
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis:6379
+      DB_GRPC_ADDR: db:8010
+      AI_GRPC_ADDR: ai:8002
+      REALTIME_URL: http://realtime:8001
+      BACKEND_SECRET: ${BACKEND_SECRET}
+      APP_URL: ${APP_URL}
+      PORT: "8000"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+      realtime:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # private Postgres gatekeeper (Rust tonic :8010 + healthz :8011)
+  db:
+    build:
+      context: .
+      dockerfile: db/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@postgres:5432/app
+      BACKEND_SECRET: ${BACKEND_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8011/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # events fanout (Gleam)
+  realtime:
+    build: ./realtime
+    restart: unless-stopped
+    environment:
+      BACKEND_SECRET: ${BACKEND_SECRET}
+      REDIS_URL: redis://redis:6379
+      PORT: "8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # all AI work (Go providers + Python RAG sidecar in one image)
+  ai:
+    build:
+      context: .
+      dockerfile: ai/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@postgres:5432/app
+      REDIS_ADDR: redis://redis:6379
+      BACKEND_SECRET: ${BACKEND_SECRET}
+      AI_PROVIDER: ${AI_PROVIDER:-cloudflare}
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
+      CF_API_TOKEN: ${CF_API_TOKEN}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL}
+      SUPPORT_LLM_URL: http://support-llm:8080/v1
+      RAG_URL: http://localhost:8003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # local support LLM (llama.cpp, OpenAI-compatible). Pull the model once:
+  #   make support-llm   (downloads TinyLlama Q4 GGUF to the named volume)
+  support-llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    command: >
+      -m /models/tinyllama-1.1b-chat-q4_k_m.gguf
+      --host 0.0.0.0 --port 8080 -c 4096
+    volumes:
+      - models:/models
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  postgres:
+    image: pgvector/pgvector:pg16   # vector extension for RAG (0002_rag.sql)
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory-policy", "allkeys-lru"]  # caches grow for 7d; LRU keeps RAM sane
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata: {}
+  caddy_data: {}
+  caddy_config: {}
+  models: {}

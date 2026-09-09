@@ -59,7 +59,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: templates/core/package-lock.json
       - run: node $GITHUB_WORKSPACE/src/cli.ts --name smoke --variant both --yes
         working-directory: /tmp
-      - run: cd /tmp/smoke && bun install --frozen-lockfile && bun run build:ui
+      - run: cd /tmp/smoke && npm ci --no-audit --no-fund && npm run build:ui

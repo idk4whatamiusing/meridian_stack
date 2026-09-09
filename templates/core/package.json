@@ -6,10 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:ui": "bun --cwd ui dev",
+    "dev:ui": "npm run dev --workspace ui",
     "dev:db": "cargo run --manifest-path db/Cargo.toml",
     "dev:api": "go run ./api",
     "dev:realtime": "cd realtime && gleam run",
-    "build:ui": "bun --cwd ui build"
+    "build:ui": "npm run build --workspace ui"
   }
 }

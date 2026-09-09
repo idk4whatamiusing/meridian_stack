@@ -11,7 +11,7 @@ and `deploy-aws` (secrets: `SSH_HOST`, `SSH_USER`, `SSH_KEY`).
 
 # Cloudflare
 
-Prereqs: `bun`, a Cloudflare account, and a reachable backend for `API_ORIGIN`
+Prereqs: `node 24 + npm`, a Cloudflare account, and a reachable backend for `API_ORIGIN`
 (your Rust API + Postgres + Redis, e.g. on the AWS host behind
 `https://api.YOUR-IP.sslip.io`, or `localhost` during `wrangler dev`).
 
@@ -69,6 +69,9 @@ automatically via Let's Encrypt for `*.YOUR-IP.sslip.io` - zero cert management.
 ## 2. On the box
 
     git clone <your-repo> && cd <your-repo>
+    # ui/ is served by the Cloudflare Worker - skip it on EC2 (CD does this automatically)
+    git sparse-checkout init --no-cone
+    git sparse-checkout set '/*' '!ui/'
 
 ## 3. Configure + launch
 
@@ -77,16 +80,16 @@ automatically via Let's Encrypt for `*.YOUR-IP.sslip.io` - zero cert management.
 
 ## 4. Verify
 
-    curl https://YOUR-PUBLIC-IP.sslip.io          # web
-    curl https://api.YOUR-PUBLIC-IP.sslip.io/health
+    curl https://api.YOUR-PUBLIC-IP.sslip.io/health   # backend (no apex on EC2 - UI lives on the worker URL)
 
 Caddy auto-redirects http -> https and renews certs itself.
 
 ## Scaling notes
 
-- This runs one instance of every service (docker compose). Horizontal scale
-  = multiple boxes + a load balancer; that's when realtime needs the Redis
-  pub/sub broker instead of its in-memory fanout (see realtime/src/broker.gleam).
+- This runs one instance of every backend service (docker compose, no `ui` -
+  Cloudflare serves it). Horizontal scale = multiple boxes + a load balancer;
+  that's when realtime needs the Redis pub/sub broker instead of its
+  in-memory fanout (see realtime/src/broker.gleam).
 - VPC subnets/peering, RDS instead of container Postgres, ECR: account-level
   choices, add them when the workloads justify it - the API talks to anything
   that speaks Postgres/Redis.
