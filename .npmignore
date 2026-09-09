@@ -1,0 +1,17 @@
+# NOTE: when .npmignore exists, npm ignores .gitignore entirely,
+# so this mirrors it plus pack-specific excludes.
+node_modules/
+target/
+build/
+__pycache__/
+*.pyc
+.gleam/
+bun.lock
+.next/
+out/
+.DS_Store
+*.tgz
+.terraform/
+terraform.tfstate*
+erl_crash.dump
+.venv/
